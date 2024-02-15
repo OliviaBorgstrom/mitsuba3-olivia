@@ -1,0 +1,148 @@
+<scene version="3.0.2">
+	<default name="integrator" value="ptracer" />
+	<default name="spp" value="32" />
+	<default name="resy" value="1024" />
+	<default name="resx" value="1024" />
+	<default name="max_depth" value="65" />
+	<integrator type="ptracer">
+		<integer name="max_depth" value="$max_depth" />
+		<boolean name="hide_emitters" value="false" />
+		
+	</integrator>
+	
+	<sensor type="perspective">
+		<float name="fov" value="100" />
+
+		<transform name="to_world">
+			
+			<lookat origin="0, 1100 ,792" target="0, 1500, 1120" up="0, 0, 1" />    
+            
+			
+			
+		</transform>
+		<sampler type="independent">
+			<integer name="sample_count" value="$spp" />
+		</sampler>
+		<film type="hdrfilm">
+			<integer name="width" value="$resx" />
+			<integer name="height" value="$resy" />
+			<string name="file_format" value="openexr" />
+			<string name="pixel_format" value="rgb" />
+			
+			<string name="component_format" value="uint32" />
+			<rfilter type="tent" />
+		</film>
+	</sensor>
+
+	<bsdf type="twosided" id="MirrorBSDF">
+		<bsdf type="conductor">
+			<string name="material" value="none" />
+		</bsdf>
+	</bsdf>
+
+	<bsdf type="twosided" id="RoughMirrorBSDF">
+		<bsdf type="roughconductor">
+			<string name="material" value="none" />
+			<spectrum name="alpha" value="0.01" />
+		</bsdf>
+	</bsdf>
+
+	<bsdf type="twosided" id="test">
+		<bsdf type="diffuse">
+			<rgb name="reflectance" value="0.5, 0.5, 1" />
+		</bsdf>
+	</bsdf>
+
+	<bsdf type="twosided" id="test2">
+		<bsdf type="diffuse">
+			<rgb name="reflectance" value="0.9, 0.5, 0.2" />
+		</bsdf>
+	</bsdf>
+
+	
+    
+
+
+     
+
+    <shape type="cube" id="mirror_spherical">
+		<transform name="to_world">
+            <scale x="1500" y="650" z="33" />
+            
+       		<lookat origin="0,2000,355" target="0,1000,600 " up="0, 0, 1" />
+		</transform>
+		<ref id="MirrorBSDF" />
+	</shape>
+
+
+
+	
+	
+
+    <shape type="rectangle" id="mirror_flat">
+		<transform name="to_world">
+            <scale x="740" y="440" z="0.1" />
+       		<lookat origin="0,1000,710" target="0, 2000,900 " up="0, 0, 1" />
+		</transform>
+		<ref id="MirrorBSDF" />
+	</shape>
+
+	
+	<shape type="rectangle" id="detector">
+		<transform name="to_world">
+            <scale x="1000" y="500" z="0.5" />
+			<lookat origin="0, 1500, 1120" target="0,1000,710" up="0, 0, 1" />
+		</transform>
+		<ref id="test" />	
+    </shape>
+
+	 <shape type="rectangle" id="backwall">
+		<transform name="to_world">
+			<scale x="3000" y="3000" />
+			<lookat origin="-1000,1500,500" target="0, 1500, 500" up="0, 1, 0" />
+		</transform>
+        <bsdf type="diffuse">
+            <rgb name="reflectance" value="0.4, 1, 0.2" />
+        </bsdf>
+	</shape>
+
+	<shape type="rectangle" id="ceiling">
+		<transform name="to_world">
+			<scale x="3000" y="3000" />
+			<lookat origin="0,1500,3000" target="0, 1500, 0" up="0, 1, 0" />
+		</transform>
+        <bsdf type="diffuse">
+            <rgb name="reflectance" value="0.8, 0.3, 0.45" />
+        </bsdf>
+	</shape>
+
+	<shape type="rectangle" id="leftwall">
+		<transform name="to_world">
+			<scale x="3000" y="3000" z="3000" />
+			<lookat origin="0,0,500" target="0, 1500, 500" up="0, 0, 1" />
+		</transform>
+        <bsdf type="diffuse">
+            <rgb name="reflectance" value="0.32, 0.46, 0.23" />
+        </bsdf>
+	</shape>
+
+	<shape type="rectangle" id="rightwall">
+		<transform name="to_world">
+			<scale x="3000" y="3000" z="3000" />
+			<lookat origin="0,3000,500" target="0, 1500, 500" up="0, 0, 1" />
+		</transform>
+        <bsdf type="diffuse">
+            <rgb name="reflectance" value="0.92, 0.58, 1" />
+        </bsdf>
+	</shape>
+
+	<shape type="rectangle" id="floor">
+		<transform name="to_world">
+			<scale x="3000" y="3000" z="3000" />
+			<lookat origin="0,1500,-1000" target="0, 1500, 3000" up="0, 1, 0" />
+		</transform>
+        <bsdf type="diffuse">
+            <rgb name="reflectance" value="0.56, 0.23, 0.54" />
+        </bsdf>
+	</shape>
+<emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.0868163, 1028.03, 102.747" target="-0.0382954, 1029.025146, 102.832613" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.0913633121582139" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.137457, 1139.24, 113.857" target="-0.156363, 1140.238493, 113.9085291" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.09185751583432335" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.075288, 1002.72, 100.218" target="-0.044064099999999995, 1003.71774, 100.27750590000001" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.08705077703851165" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.108812, 1076.33, 107.573" target="-0.11670215, 1077.3185939999998, 107.723396" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.10179442612809457" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.169367, 1209.31, 120.857" target="-0.17927102, 1210.308793, 120.9051003" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.09467482700469858" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.140442, 1145.79, 114.511" target="-0.14450033, 1146.778534, 114.661943" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.10536740896835238" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.102064, 1061.52, 106.092" target="-0.090696, 1062.508767, 106.241032" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.10090670546996891" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.142515, 1150.35, 114.966" target="-0.1604406, 1151.348489, 115.01795159999999" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.0924236698366881" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.160648, 1190.17, 118.944" target="-0.19853160000000003, 1191.1671900000001, 119.0086326" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.09600858336214256" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.0846522, 1023.28, 102.272" target="-0.1037399, 1024.278464, 102.3240078" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.08694462138011817" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.106138, 1070.46, 106.986" target="-0.1201267, 1071.448824, 107.134429" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.10125987123394355" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.128321, 1119.18, 111.852" target="-0.1089464, 1120.1784730000002, 111.903735" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.09098370346285095" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.0926797, 1040.91, 104.033" target="-0.06807650000000001, 1041.899362, 104.176381" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.0992162339136415" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.0892854, 1033.45, 103.289" target="-0.063723, 1034.448132, 103.3444941" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.08780004090824976" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.108005, 1074.56, 107.395" target="-0.07608390000000001, 1075.549886, 107.53322399999999" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.10015187314377755" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.140215, 1145.3, 114.462" target="-0.1906098, 1146.292395, 114.574308" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.10020879894124553" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.0849027, 1023.83, 102.327" target="-0.1054245, 1024.819105, 102.472775" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.09872357189301961" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.19798, 1268.91, 126.797" target="-0.1621458, 1269.900132, 126.932481" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.110023028347383" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.193823, 1260.29, 125.938" target="-0.2132865, 1261.279106, 126.083916" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.11099656303199801" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.207681, 1289.02, 128.801" target="-0.16165580000000002, 1290.01159, 128.92196099999998" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.10912591999108431" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.203744, 1280.86, 127.988" target="-0.2503954, 1281.855914, 128.0653196" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.10243525156807018" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.230436, 1324.61, 132.339" target="-0.2666546, 1325.600164, 132.47414" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.11329982228473898" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.236167, 1333.56, 133.229" target="-0.27726449999999997, 1334.55069, 133.358784" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.1130676266940857" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.269595, 1385.75, 138.417" target="-0.2456561, 1386.748258, 138.47092800000001" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.10494185399783824" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.208204, 1289.9, 128.889" target="-0.1827127, 1290.8893970000001, 129.03198" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.11232788552982878" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.222503, 1312.23, 131.108" target="-0.1986351, 1313.219408, 131.25118700000002" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.11371291005094243" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.268085, 1383.39, 138.183" target="-0.3106996, 1384.380813, 138.311351" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.11600862409028197" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.227687, 1320.32, 131.913" target="-0.1767841, 1321.3139449999999, 132.01038160000002" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.10754630498264874" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.222037, 1311.5, 131.036" target="-0.21638100000000002, 1312.498807, 131.0845005" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.09995573355033828" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.223681, 1314.07, 131.291" target="-0.20218229999999998, 1315.0593099999999, 131.435235" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.11397831925834906" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.539437, 1692.96, 169.056" target="-0.48940150000000004, 1693.952929, 169.16364800000002" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.13661409223060675" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.275107, 1392.12, 139.052" target="-0.2854757, 1393.1088029999999, 139.200866" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.11968612863120182" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.347304, 1474.29, 147.247" target="-0.2973274, 1475.284264, 147.34155900000002" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.11688835375199673" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.684647, 1858.23, 185.538" target="-0.7324955, 1859.225696, 185.6173685" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.14806174353230112" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.724833, 1903.97, 190.1" target="-0.7638579999999999, 1904.9671230000001, 190.1649879" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.1503685959690274" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.452878, 1594.44, 159.231" target="-0.5046511, 1595.434107, 159.3262366" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.1259290128690927" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.70734, 1884.06, 188.114" target="-0.7592616, 1885.054565, 188.204246" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.15330963133704534" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.495963, 1643.48, 164.121" target="-0.49303459, 1644.478811, 164.1696531" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.1217810481463583" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.612075, 1775.63, 177.301" target="-0.5617835, 1776.623319, 177.40486299999998" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.14400281925588507" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.394441, 1527.94, 152.598" target="-0.4191376, 1528.938253, 152.65166950000003" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.11400713661588678" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.301251, 1421.87, 142.02" target="-0.3421974, 1422.8606049999999, 142.150484" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.11889605674594113" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.31311, 1435.37, 143.366" target="-0.3282711, 1436.368679, 143.41510240000002" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.10719666029744764" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.519192, 1669.92, 166.758" target="-0.52317024, 1670.9086200000002, 166.908384" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.14216415247795888" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.715296, 1893.12, 189.017" target="-0.7588925000000001, 1894.1110139999998, 189.143452" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.16202533978558403" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.586896, 1746.98, 174.443" target="-0.6133185, 1747.969355, 174.58610000000002" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.14850201437981134" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.391684, 1524.8, 152.285" target="-0.37157019999999996, 1525.789036, 152.431298" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.12893559343701694" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.550945, 1706.06, 170.362" target="-0.54743538, 1707.0487249999999, 170.511701" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.1455588624146682" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.688749, 1862.9, 186.004" target="-0.6475226, 1863.890945, 186.131779" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.15855433739567773" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.715706, 1893.58, 189.064" target="-0.7047133, 1894.5787309999998, 189.1131546" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.14581044504891688" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.516787, 1667.18, 166.485" target="-0.5293229, 1668.178684, 166.5347278" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.12389669582254527" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.603696, 1766.1, 176.35" target="-0.6247437, 1767.089111, 176.49566" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.15101918237568124" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.483549, 1629.35, 162.712" target="-0.4412182, 1630.341119, 162.838059" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.13417798911585302" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.618653, 1783.12, 178.047" target="-0.5909074, 1784.1096249999998, 178.187967" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.15197225077633336" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.586959, 1747.05, 174.45" target="-0.6377521, 1748.0448119999999, 174.53814509999998" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.13812559300363916" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.594524, 1755.66, 175.309" target="-0.5449332, 1756.653238, 175.413972" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.14217965486764114" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.511755, 1661.46, 165.914" target="-0.5273249999999999, 1662.458624, 165.96407269999997" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.12348426043678017" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.581954, 1741.35, 173.882" target="-0.58254749, 1742.348857, 173.9297939" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.12997920529138468" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.587847, 1748.06, 174.551" target="-0.5995991, 1749.048695, 174.700482" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.14981796057266925" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.371233, 1501.52, 149.963" target="-0.32522789999999996, 1502.515771, 150.04252359999998" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.11637678222541048" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.54848, 1703.25, 170.082" target="-0.5000129, 1704.245088, 170.1683132" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.13366697443513545" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.692771, 1867.48, 186.46" target="-0.7396722, 1868.471614, 186.58042600000002" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.15758767007891003" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.390827, 1523.82, 152.187" target="-0.40105769999999996, 1524.8087349999998, 152.336326" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.1293532999791347" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.308797, 1430.46, 142.876" target="-0.3416865, 1431.457682, 142.9355655" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.10851674025421124" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.612199, 1775.78, 177.315" target="-0.5677697, 1776.771501, 177.43728" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.14757078120193623" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.632665, 1799.07, 179.638" target="-0.6119765, 1800.059178, 179.783254" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.1545809279373321" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.725435, 1904.65, 190.168" target="-0.7041120000000001, 1905.639057, 190.313983" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.16764762759546264" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.344581, 1471.19, 146.938" target="-0.343634851, 1472.188819, 146.98658669999998" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.1093899023300645" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.317098, 1439.91, 143.818" target="-0.3275327, 1440.9087590000001, 143.86670070000002" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.10742009921715218" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.726726, 1906.12, 190.314" target="-0.72133348, 1907.108691, 190.46387199999998" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.16867167144062628" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.581425, 1740.75, 173.822" target="-0.58505264, 1741.748821, 173.8704074" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.13004299023108792" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.702366, 1878.4, 187.549" target="-0.7201968000000001, 1879.38886, 187.696775" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.16460553414573625" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.447463, 1588.28, 158.616" target="-0.4781737, 1589.277832, 158.6742031" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.11914213064237225" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.655299, 1824.83, 182.207" target="-0.6089823, 1825.821866, 182.325558" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.1522177753956462" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.483308, 1629.08, 162.685" target="-0.5096281, 1630.0693939999999, 162.82785" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.13707813447791564" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.683417, 1856.83, 185.399" target="-0.6344069000000001, 1857.822727, 185.508957" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.15417468678610394" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.494837, 1642.2, 163.993" target="-0.462471, 1643.189903, 164.131003" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.1374074652118429" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.784467, 1998.85, 199.568" target="-0.8299617, 1999.841138, 199.69280600000002" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.17629399087590072" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.76523, 1966.79, 196.368" target="-0.7282632, 1967.78032, 196.50179" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.1736048691778276" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.818309, 2054.29, 205.101" target="-0.8586402999999999, 2055.286878, 205.1688809" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.17138018865993718" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.813787, 2047.0, 204.374" target="-0.7749374, 2047.997079, 204.4397543" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.1697551289629716" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.817653, 2053.23, 204.996" target="-0.7672040999999999, 2054.223592, 205.097147" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.179220441067898" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.831746, 2075.93, 207.263" target="-0.7979021, 2076.9275119999998, 207.3248464" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.17330125255194215" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.944052, 2211.83, 220.812" target="-0.9003021, 2212.821263, 220.93643400000002" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.21543190919328112" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.944919, 2212.86, 220.915" target="-0.94719349, 2213.848758, 221.064507" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.22267451075884764" /></emitter><emitter type="photon_emitter_olivia"><transform name="to_world"><lookat origin="-0.8959, 2154.47, 215.093" target="-0.88629806, 2155.468743, 215.14218939999998" up="0,1,0" /></transform><rgb name="intensity" value="200000000.0" /><float name="cutoff_angle" value="0.1833789951391247" /></emitter></scene>
