@@ -564,9 +564,85 @@ protected:
     int m_rr_depth;
 };
 
+template <typename Float, typename Spectrum>
+class MI_EXPORT_LIB MyIntegrator : public Integrator<Float, Spectrum> {
+public:
+    MI_IMPORT_BASE(Integrator, should_stop, aov_names, m_stop, m_timeout,
+                    m_render_timer, m_hide_emitters)
+    MI_IMPORT_TYPES(Scene, Sensor, Film, BSDF, BSDFPtr, ImageBlock, Sampler,
+                     EmitterPtr, Medium, MediumPtr)
+
+    /**
+     * \brief Sample the incident importance and splat the product of
+     * importance and radiance to the film.
+     *
+     * \param scene
+     *    The underlying scene
+     *
+     * \param sensor
+     *    A sensor from which rays should be sampled
+     *
+     * \param sampler
+     *    A source of (pseudo-/quasi-) random numbers
+     *
+     * \param block
+     *    An image block that will be updated during the sampling process
+     *
+     * \param sample_scale
+     *    A scale factor that must be applied to each sample to account
+     *    for the film resolution and number of samples.
+     */
+    virtual void sample(const Scene *scene, const Sensor *sensor,
+                        Sampler *sampler, ImageBlock *block,
+                        ScalarFloat sample_scale, const Medium *initial_medium) const = 0;
+
+    // =========================================================================
+    //! @{ \name Integrator interface implementation
+    // =========================================================================
+
+    TensorXf render(Scene *scene,
+                    Sensor *sensor,
+                    uint32_t seed = 0,
+                    uint32_t spp = 0,
+                    bool develop = true,
+                    bool evaluate = true) override;
+
+    //! @}
+    // =========================================================================
+
+    MI_DECLARE_CLASS()
+
+protected:
+    /// Create an integrator
+    MyIntegrator(const Properties &props);
+
+    /// Virtual destructor
+    virtual ~MyIntegrator();
+
+protected:
+    /**
+     * \brief Number of samples to compute for each pass over the image blocks.
+     *
+     * Must be a multiple of the total sample count per pixel.
+     * If set to (size_t) -1, all the work is done in a single pass (default).
+     */
+    uint32_t m_samples_per_pass;
+
+    /**
+     * Longest visualized path depth (\c -1 = infinite).
+     * A value of \c 1 will visualize only directly visible light sources.
+     * \c 2 will lead to single-bounce (direct-only) illumination, and so on.
+     */
+    int m_max_depth;
+
+    /// Depth to begin using russian roulette
+    int m_rr_depth;
+};
+
 
 MI_EXTERN_CLASS(Integrator)
 MI_EXTERN_CLASS(SamplingIntegrator)
 MI_EXTERN_CLASS(MonteCarloIntegrator)
 MI_EXTERN_CLASS(AdjointIntegrator)
+MI_EXTERN_CLASS(MyIntegrator)
 NAMESPACE_END(mitsuba)

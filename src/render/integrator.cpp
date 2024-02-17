@@ -623,6 +623,7 @@ AdjointIntegrator<Float, Spectrum>::render(Scene *scene,
         // Start the render timer (used for timeouts & log messages)
         m_render_timer.reset();
 
+        //std::cout << "inside integrator.cpp";
         ThreadEnvironment env;
         dr::parallel_for(
             dr::blocked_range<size_t>(0, total_samples, grain_size),
@@ -762,14 +763,256 @@ AdjointIntegrator<Float, Spectrum>::render(Scene *scene,
 
 // -----------------------------------------------------------------------------
 
+MI_VARIANT MyIntegrator<Float, Spectrum>::MyIntegrator(const Properties &props)
+    : Base(props) {
+
+    m_samples_per_pass = props.get<uint32_t>("samples_per_pass", (uint32_t) -1);
+
+    m_rr_depth = props.get<int>("rr_depth", 5);
+    if (m_rr_depth <= 0)
+        Throw("\"rr_depth\" must be set to a value greater than zero!");
+
+    m_max_depth = props.get<int>("max_depth", -1);
+    if (m_max_depth < 0 && m_max_depth != -1)
+        Throw("\"max_depth\" must be set to -1 (infinite) or a value >= 0");
+}
+
+MI_VARIANT MyIntegrator<Float, Spectrum>::~MyIntegrator() { }
+
+MI_VARIANT typename MyIntegrator<Float, Spectrum>::TensorXf
+MyIntegrator<Float, Spectrum>::render(Scene *scene,
+                                           Sensor *sensor,
+                                           uint32_t seed,
+                                           uint32_t spp,
+                                           bool develop,
+                                           bool evaluate) {
+    ScopedPhase sp(ProfilerPhase::Render);
+    m_stop = false;
+
+    Film *film = sensor->film();
+    ScalarVector2u film_size = film->size(),
+                   crop_size = film->crop_size();
+
+    const Medium *medium = sensor->medium();
+
+    // Potentially adjust the number of samples per pixel if spp != 0
+    Sampler *sampler = sensor->sampler();
+    if (spp)
+        sampler->set_sample_count(spp);
+    spp = sampler->sample_count();
+
+    // Figure out how to divide up samples into passes, if needed
+    uint32_t spp_per_pass = (m_samples_per_pass == (uint32_t) -1)
+                                ? spp
+                                : std::min(m_samples_per_pass, spp);
+
+    if ((spp % spp_per_pass) != 0)
+        Throw("sample_count (%d) must be a multiple of samples_per_pass (%d).",
+              spp, spp_per_pass);
+
+    uint32_t n_passes = spp / spp_per_pass;
+
+    size_t samples_per_pass =
+        (size_t) film_size.x() * (size_t) film_size.y() * (size_t) spp_per_pass;
+
+    std::vector<std::string> aovs = aov_names();
+    if (!aovs.empty())
+        Throw("AOVs are not supported in the AdjointIntegrator!");
+    film->prepare(aovs);
+
+    // Special case: no emitters present in the scene.
+    if (unlikely(scene->emitters().empty())) {
+        Log(Info, "Rendering finished (no emitters found, returning black image).");
+        TensorXf result;
+        if (develop) {
+            result = film->develop();
+            dr::schedule(result);
+        } else {
+            film->schedule_storage();
+        }
+        return result;
+    }
+
+    ScalarFloat sample_scale =
+        dr::prod(crop_size) / ScalarFloat(spp * dr::prod(film_size));
+
+    TensorXf result;
+    if constexpr (!dr::is_jit_v<Float>) {
+        size_t n_threads = Thread::thread_count();
+
+        Log(Info, "Starting render job (%ux%u, %u sample%s,%s %u thread%s)",
+            crop_size.x(), crop_size.y(), spp, spp == 1 ? "" : "s",
+            n_passes > 1 ? tfm::format(" %d passes,", n_passes) : "", n_threads,
+            n_threads == 1 ? "" : "s");
+
+        if (m_timeout > 0.f)
+            Log(Info, "Timeout specified: %.2f seconds.", m_timeout);
+
+        // Split up all samples between threads
+        size_t grain_size =
+            std::max(samples_per_pass / (4 * n_threads), (size_t) 1);
+
+        std::mutex mutex;
+        ref<ProgressReporter> progress = new ProgressReporter("Rendering");
+
+        size_t total_samples = samples_per_pass * n_passes;
+
+        seed *= (uint32_t) total_samples / (uint32_t) grain_size;
+        std::atomic<size_t> samples_done(0);
+
+        // Start the render timer (used for timeouts & log messages)
+        m_render_timer.reset();
+
+        //std::cout << "inside integrator.cpp";
+        ThreadEnvironment env;
+        dr::parallel_for(
+            dr::blocked_range<size_t>(0, total_samples, grain_size),
+            [&](const dr::blocked_range<size_t> &range) {
+                ScopedSetThreadEnvironment set_env(env);
+
+                // Fork a non-overlapping sampler for the current worker
+                ref<Sampler> sampler = sensor->sampler()->clone();
+
+                ref<ImageBlock> block = film->create_block(
+                    ScalarVector2u(0) /* use crop size */,
+                    true /* normalize */,
+                    false /* border */);
+
+                block->set_offset(film->crop_offset());
+
+                // Clear block (it's being reused)
+                block->clear();
+
+                sampler->seed(seed +
+                              (uint32_t) range.begin() / (uint32_t) grain_size);
+
+                size_t ctr = 0;
+                for (auto i = range.begin(); i != range.end() && !should_stop(); ++i) {
+                    sample(scene, sensor, sampler, block, sample_scale, medium);
+                    sampler->advance();
+
+                    ctr++;
+                    if (ctr > 10000) {
+                        std::lock_guard<std::mutex> lock(mutex);
+                        samples_done += ctr;
+                        ctr = 0;
+                        progress->update(samples_done / (ScalarFloat) total_samples);
+                    }
+                }
+                total_samples += ctr;
+
+                // When all samples are done for this range, commit to the film
+                /* locked */ {
+                    std::lock_guard<std::mutex> lock(mutex);
+                    progress->update(samples_done / (ScalarFloat) total_samples);
+                    film->put_block(block);
+                }
+            }
+        );
+
+        if (develop)
+            result = film->develop();
+    } else {
+        if (n_passes > 1 && !evaluate) {
+            Log(Warn, "render(): forcing 'evaluate=true' since multi-pass "
+                      "rendering was requested.");
+            evaluate = true;
+        }
+
+        constexpr size_t wavefront_size_limit = 0xffffffffu;
+        if (samples_per_pass > wavefront_size_limit) {
+            spp_per_pass /=
+                (uint32_t)((samples_per_pass + wavefront_size_limit - 1) /
+                           wavefront_size_limit);
+            n_passes = spp / spp_per_pass;
+            samples_per_pass = (size_t) film_size.x() * (size_t) film_size.y() *
+                               (size_t) spp_per_pass;
+
+            Log(Warn,
+                "The requested rendering task involves %zu Monte Carlo "
+                "samples, which exceeds the upper limit of 2^32 = 4294967296 "
+                "for this variant. Mitsuba will instead split the rendering "
+                "task into %zu smaller passes to avoid exceeding the limits.",
+                samples_per_pass, n_passes);
+        }
+
+        Log(Info, "Starting render job (%ux%u, %u sample%s%s)",
+            crop_size.x(), crop_size.y(), spp, spp == 1 ? "" : "s",
+            n_passes > 1 ? tfm::format(", %u passes", n_passes) : "");
+
+        // Inform the sampler about the passes (needed in vectorized modes)
+        sampler->set_samples_per_wavefront(spp_per_pass);
+
+        // Seed the underlying random number generators, if applicable
+        sampler->seed(seed, (uint32_t) samples_per_pass);
+
+        ref<ImageBlock> block = film->create_block(
+            ScalarVector2u(0) /* use crop size */,
+            true /* normalize */,
+            false /* border */);
+
+        block->set_offset(film->crop_offset());
+
+        /* Disable coalescing of atomic writes performed within the ImageBlock
+           (they are highly irregular in any particle tracing-based method) */
+        block->set_coalesce(false);
+
+        Timer timer;
+        for (size_t i = 0; i < n_passes; i++) {
+            sample(scene, sensor, sampler, block, sample_scale, medium);
+
+            if (n_passes > 1) {
+                sampler->advance(); // Will trigger a kernel launch of size 1
+                sampler->schedule_state();
+                dr::eval(block->tensor());
+            }
+        }
+
+        film->put_block(block);
+
+        if (develop) {
+            result = film->develop();
+            dr::schedule(result);
+        } else {
+            film->schedule_storage();
+        }
+
+        if (evaluate) {
+            dr::eval();
+
+            if (n_passes == 1 && jit_flag(JitFlag::VCallRecord) &&
+                jit_flag(JitFlag::LoopRecord)) {
+                Log(Info, "Code generation finished. (took %s)",
+                    util::time_string((float) timer.value(), true));
+
+                /* Separate computation graph recording from the actual
+                   rendering time in single-pass mode */
+                m_render_timer.reset();
+            }
+
+            dr::sync_thread();
+        }
+    }
+
+    if (!m_stop && (evaluate || !dr::is_jit_v<Float>))
+        Log(Info, "Rendering finished. (took %s)",
+            util::time_string((float) m_render_timer.value(), true));
+
+    return result;
+}
+
+// -----------------------------------------------------------------------------
+
 MI_IMPLEMENT_CLASS_VARIANT(Integrator, Object, "integrator")
 MI_IMPLEMENT_CLASS_VARIANT(SamplingIntegrator, Integrator)
 MI_IMPLEMENT_CLASS_VARIANT(MonteCarloIntegrator, SamplingIntegrator)
 MI_IMPLEMENT_CLASS_VARIANT(AdjointIntegrator, Integrator)
+MI_IMPLEMENT_CLASS_VARIANT(MyIntegrator, Integrator)
 
 MI_INSTANTIATE_CLASS(Integrator)
 MI_INSTANTIATE_CLASS(SamplingIntegrator)
 MI_INSTANTIATE_CLASS(MonteCarloIntegrator)
 MI_INSTANTIATE_CLASS(AdjointIntegrator)
+MI_INSTANTIATE_CLASS(MyIntegrator)
 
 NAMESPACE_END(mitsuba)
