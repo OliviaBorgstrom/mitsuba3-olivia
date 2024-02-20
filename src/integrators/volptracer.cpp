@@ -75,9 +75,23 @@ public:
 
     VolumetricParticleTracerIntegrator(const Properties &props) : Base(props) { }
 
+    MI_INLINE
+    Float index_spectrum(const UnpolarizedSpectrum &spec, const UInt32 &idx) const {
+        Float m = spec[0];
+        if constexpr (is_rgb_v<Spectrum>) { // Handle RGB rendering
+            dr::masked(m, dr::eq(idx, 1u)) = spec[1];
+            dr::masked(m, dr::eq(idx, 2u)) = spec[2];
+        } else {
+            DRJIT_MARK_USED(idx);
+        }
+        return m;
+    }
+
     void sample(const Scene *scene, const Sensor *sensor, Sampler *sampler,
                 ImageBlock *block, ScalarFloat sample_scale, const Medium *initial_medium) const override { //,const Medium *initial_medium) const override {
         // Account for emitters directly visible from the sensor
+        MediumPtr medium = initial_medium;
+
         if (m_max_depth != 0 && !m_hide_emitters)
             sample_visible_emitters(scene, sensor, sampler, block, sample_scale);
 
@@ -88,7 +102,7 @@ public:
         Mask active = dr::neq(throughput_max, 0.f);
 
         trace_light_ray(ray, scene, sensor, sampler, throughput, block,
-                        sample_scale, active);
+                        sample_scale, medium, active);
     }
 
     /**
@@ -206,15 +220,23 @@ public:
     std::pair<Spectrum, Float>
     trace_light_ray(Ray3f ray, const Scene *scene, const Sensor *sensor,
                     Sampler *sampler, Spectrum throughput, ImageBlock *block,
-                    ScalarFloat sample_scale, Mask active = true) const {
+                    ScalarFloat sample_scale,  MediumPtr medium, Mask active = true) const {
         // Tracks radiance scaling due to index of refraction changes
         Float eta(1.f);
 
         Int32 depth = 1;
 
+        UInt32 channel = 0;
+        if (is_rgb_v<Spectrum>) {
+            uint32_t n_channels = (uint32_t) dr::array_size_v<Spectrum>;
+            channel = (UInt32) dr::minimum(sampler->next_1d(active) * n_channels, n_channels - 1);
+        }
         /* ---------------------- Path construction ------------------------- */
         // First intersection from the emitter to the scene
         SurfaceInteraction3f si = scene->ray_intersect(ray, active);
+        MediumInteraction3f mei = dr::zeros<MediumInteraction3f>();
+        Mask needs_intersection = true;
+        Interaction3f last_scatter_event = dr::zeros<Interaction3f>();
 
         active &= si.is_valid();
         if (m_max_depth >= 0)
@@ -224,7 +246,8 @@ public:
            generates wavefront or megakernel renderer based on configuration).
            Register everything that changes as part of the loop here */
         dr::Loop<Mask> loop("Particle Tracer Integrator", active, depth, ray,
-                            throughput, si, eta, sampler);
+                            throughput, si, eta, sampler,medium,needs_intersection,
+                            mei, last_scatter_event);
 
         // Incrementally build light path using BSDF sampling.
         while (loop(active)) {
@@ -237,6 +260,54 @@ public:
             connect_sensor(scene, si, sensor_ds, bsdf,
                            throughput * sensor_weight, block, sample_scale,
                            active);
+            
+            /* ----------------------- Medium sampling ------------------------ */
+            Mask active_medium  = active && dr::neq(medium, nullptr);
+            Mask active_surface = active && !active_medium;
+            Mask act_null_scatter = false, act_medium_scatter = false,
+                 escaped_medium = false;
+            
+            // If the medium does not have a spectrally varying extinction,
+            // we can perform a few optimizations to speed up rendering
+            Mask is_spectral = active_medium;
+            Mask not_spectral = false;
+            if (dr::any_or<true>(active_medium)) {
+                is_spectral &= medium->has_spectral_extinction();
+                not_spectral = !is_spectral && active_medium;
+            }
+
+            if (dr::any_or<true>(active_medium)) {
+                mei = medium->sample_interaction(ray, sampler->next_1d(active_medium), channel, active_medium);
+                dr::masked(ray.maxt, active_medium && medium->is_homogeneous() && mei.is_valid()) = mei.t;
+                Mask intersect = needs_intersection && active_medium;
+                if (dr::any_or<true>(intersect))
+                    dr::masked(si, intersect) = scene->ray_intersect(ray, intersect);
+                needs_intersection &= !active_medium;
+
+                dr::masked(mei.t, active_medium && (si.t < mei.t)) = dr::Infinity<Float>;
+                if (dr::any_or<true>(is_spectral)) {
+                    auto [tr, free_flight_pdf] = medium->transmittance_eval_pdf(mei, si, is_spectral);
+                    Float tr_pdf = index_spectrum(free_flight_pdf, channel);
+                    dr::masked(throughput, is_spectral) *= dr::select(tr_pdf > 0.f, tr / tr_pdf, 0.f);
+                }
+
+                escaped_medium = active_medium && !mei.is_valid();
+                active_medium &= mei.is_valid();
+
+                // Handle null and real scatter events
+                Mask null_scatter = sampler->next_1d(active_medium) >= index_spectrum(mei.sigma_t, channel) / index_spectrum(mei.combined_extinction, channel);
+
+                act_null_scatter |= null_scatter && active_medium;
+                act_medium_scatter |= !act_null_scatter && active_medium;
+
+                if (dr::any_or<true>(is_spectral && act_null_scatter))
+                    dr::masked(throughput, is_spectral && act_null_scatter) *=
+                        mei.sigma_n * index_spectrum(mei.combined_extinction, channel) /
+                        index_spectrum(mei.sigma_n, channel);
+
+                dr::masked(depth, act_medium_scatter) += 1;
+                dr::masked(last_scatter_event, act_medium_scatter) = mei;
+            }
 
             /* ----------------------- BSDF sampling ------------------------ */
             // Sample BSDF * cos(theta).
