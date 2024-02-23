@@ -226,6 +226,7 @@ public:
 
         Int32 depth = 1;
 
+        Mask specular_chain = active && !m_hide_emitters;
         UInt32 channel = 0;
         if (is_rgb_v<Spectrum>) {
             uint32_t n_channels = (uint32_t) dr::array_size_v<Spectrum>;
@@ -237,6 +238,7 @@ public:
         MediumInteraction3f mei = dr::zeros<MediumInteraction3f>();
         Mask needs_intersection = true;
         Interaction3f last_scatter_event = dr::zeros<Interaction3f>();
+        Float last_scatter_direction_pdf = 1.f;
 
         active &= si.is_valid();
         if (m_max_depth >= 0)
@@ -247,7 +249,7 @@ public:
            Register everything that changes as part of the loop here */
         dr::Loop<Mask> loop("Particle Tracer Integrator", active, depth, ray,
                             throughput, si, eta, sampler,medium,needs_intersection,
-                            mei, last_scatter_event);
+                            mei, last_scatter_event, specular_chain, last_scatter_direction_pdf);
 
         // Incrementally build light path using BSDF sampling.
         while (loop(active)) {
@@ -307,6 +309,59 @@ public:
 
                 dr::masked(depth, act_medium_scatter) += 1;
                 dr::masked(last_scatter_event, act_medium_scatter) = mei;
+            }
+            // --------------------- Surface Interactions ---------------------
+            active_surface |= escaped_medium;
+            Mask intersect = active_surface && needs_intersection;
+            if (dr::any_or<true>(intersect))
+                dr::masked(si, intersect) = scene->ray_intersect(ray, intersect);
+            
+            if (dr::any_or<true>(active_surface)) {
+                // ---------------- Intersection with emitters ----------------
+                Mask ray_from_camera = active_surface && dr::eq(depth, 0u);
+                Mask count_direct = ray_from_camera || specular_chain;
+                EmitterPtr emitter = si.emitter(scene);
+                Mask active_e = active_surface && dr::neq(emitter, nullptr)
+                                && !(dr::eq(depth, 0u) && m_hide_emitters);
+                if (dr::any_or<true>(active_e)) {
+                    Float emitter_pdf = 1.0f;
+                    if (dr::any_or<true>(active_e && !count_direct)) {
+                        // Get the PDF of sampling this emitter using next event estimation
+                        DirectionSample3f ds(scene, si, last_scatter_event);
+                        emitter_pdf = scene->pdf_emitter_direction(last_scatter_event, ds, active_e);
+                    }
+                    Spectrum emitted = emitter->eval(si, active_e);
+                    Spectrum contrib = dr::select(count_direct, throughput * emitted,
+                                                  throughput * mis_weight(last_scatter_direction_pdf, emitter_pdf) * emitted);
+                    throughput += contrib;
+                }
+            }
+
+            // making volptracer using env light
+            // make volpath using photon. 
+            active_surface &= si.is_valid();
+            if (dr::any_or<true>(active_surface)) {
+                // --------------------- Emitter sampling ---------------------
+                BSDFContext ctx;
+                BSDFPtr bsdf  = si.bsdf(ray);
+                Mask active_e = active_surface && has_flag(bsdf->flags(), BSDFFlags::Smooth) && (depth + 1 < (uint32_t) m_max_depth);
+
+                if (likely(dr::any_or<true>(active_e))) {
+                    Spectrum emitted(1.0f);
+                    auto [ds, emitter_val] = scene->sample_emitter_direction(si, sampler->next_2d(active), false, active_e);
+                    //auto [emitted, ds] = 1,1;
+                    //sample_emitter(si, scene, sampler, medium, channel, active_e);
+
+                    // Query the BSDF for that emitter-sampled direction
+                    Vector3f wo       = si.to_local(ds.d);
+                    Spectrum bsdf_val = bsdf->eval(ctx, si, wo, active_e);
+                    bsdf_val = si.to_world_mueller(bsdf_val, -wo, si.wi);
+
+                    // Determine probability of having sampled that same
+                    // direction using BSDF sampling.
+                    Float bsdf_pdf = bsdf->pdf(ctx, si, wo, active_e);
+                    throughput *= bsdf_val * mis_weight(ds.pdf, dr::select(ds.delta, 0.f, bsdf_pdf)) * emitted;
+                }
             }
 
             /* ----------------------- BSDF sampling ------------------------ */
@@ -453,6 +508,14 @@ public:
                            "]",
                            m_max_depth, m_rr_depth);
     }
+
+
+    Float mis_weight(Float pdf_a, Float pdf_b) const {
+        pdf_a *= pdf_a;
+        pdf_b *= pdf_b;
+        Float w = pdf_a / (pdf_a + pdf_b);
+        return dr::select(dr::isfinite(w), w, 0.f);
+    };
 
     MI_DECLARE_CLASS()
 };
