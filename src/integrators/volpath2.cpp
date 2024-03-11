@@ -92,6 +92,7 @@ public:
         return m;
     }
 
+
     struct retVals {
                 Spectrum throughput;
                 MediumInteraction3f mei;
@@ -212,6 +213,7 @@ public:
                     sampler->next_1d(act_medium_scatter),
                     sampler->next_2d(act_medium_scatter),
                     act_medium_scatter);
+                //std::cout << phase_weight;
                 act_medium_scatter &= phase_pdf > 0.f;
                 Ray3f new_ray  = mei.spawn_ray(wo);
                 dr::masked(ray, act_medium_scatter) = new_ray;
@@ -247,6 +249,7 @@ public:
         Mask specular_chain = active && !m_hide_emitters;
         UInt32 depth = 0;
 
+        
         UInt32 channel = 0;
         if (is_rgb_v<Spectrum>) {
             uint32_t n_channels = (uint32_t) dr::array_size_v<Spectrum>;
@@ -282,7 +285,7 @@ public:
             Mask perform_rr = (depth > (uint32_t) m_rr_depth);
             active &= sampler->next_1d(active) < q || !perform_rr;
             dr::masked(throughput, perform_rr) *= dr::rcp(dr::detach(q));
-
+            //std::cout << medium;
             active &= depth < (uint32_t) m_max_depth;
             if (dr::none_or<false>(active))
                 break;
